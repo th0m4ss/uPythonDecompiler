@@ -2,7 +2,7 @@
 
 import argparse
 import os
-import importlib  
+import importlib
 import io
 import json
 import re
@@ -88,24 +88,24 @@ def evalopwithstack(shadow, i, x, stack, tablevel):
         globals()['outg'].append(('    ' * tablevel) + 'pass')
         stack = []
         return [stack, tablevel]
-    
+
     # Regex: /\$pop\([0-9]+\)/g
     pop_matches = re.finditer(r'\$pop\([0-9]+\)', e)
     pop_matches = [int(pop_match.group(0)[5:-1]) + 1 for pop_match in pop_matches]
     pop_matches.append(-1)
     cnt = max(pop_matches)
-    
+
     data = []
     for index in range(cnt):
         if (len(stack)):
             data.append(stack.pop())
         else:
             data.append('__pop')
-    
+
     out = e
-    
+
     ############################################################################
-    
+
     # Regex: /\$pop\([0-9]+\)/g
     def stage1_lbd(match):
         return data[int(match.group(0)[5:-1])]
@@ -122,7 +122,7 @@ def evalopwithstack(shadow, i, x, stack, tablevel):
         decompile_text(globals()['grps'].get(match.group(0)[5:-1]), tablevel +1) # '__tfn_' + p
         return match.group(0)[5:-1]
     out = re.sub(r'(\$fun\([^\)]+\))', stage2_lbd, out)
-    
+
     # Regex: /\$fst\([^,]+,[^\)]+\)/g
     def stage3_lbd(match):
         [ident, nm] = match.group(0)[5:-1].split(',')
@@ -130,7 +130,7 @@ def evalopwithstack(shadow, i, x, stack, tablevel):
         decompile_text(globals()['grps'].get(nm), tablevel + 1) # '__tfn_' + p
         return '$nop'
     out = re.sub(r'(\$fst\([^,]+,[^\)]+\))', stage3_lbd, out)
-    
+
     # Regex: /\$warp\([0-9]+\)/g
     def stage4_lbd(match):
         q = int(match.group(0)[6:-1])
@@ -147,29 +147,29 @@ def evalopwithstack(shadow, i, x, stack, tablevel):
             li += 1
         return new_stk[0]
     out = re.sub(r'(\$warp\([0-9]+\))', stage4_lbd, out)
-    
+
     # Regex: /\$ign\([^\)]+\)/g
     def stage5_lbd(match):
         return ''
     out = re.sub(r'(\$ign\([^\)]+\))', stage5_lbd, out)
-    
+
     ############################################################################
-    
+
     if (out == '$nop'):
         return [stack, tablevel]
-    
+
     tableveln = tablevel
-    
+
     if (out.endswith('{')):
         tableveln += 1
         out = out[0:-1].strip() + ':'
-    
+
     if (out.startswith('}')):
         tableveln -= 1
         if (out != '}'):
             tablevel -= 1
         out = out[1:].strip()
-    
+
     if (out.startswith('$push(') and out.endswith(')')):
         stack.append(out[6:-1])
     elif (out.startswith('$psh2(') and out.endswith(')')):
@@ -191,25 +191,25 @@ def evalopwithstack(shadow, i, x, stack, tablevel):
         pass
     else:
         globals()['outg'].append(('    ' * tablevel) + out)
-    
+
     tablevel = tableveln
 
     return [stack, tablevel]
 
 def decompile_text(text, tlba = 0):
     map_z = {}
-    
+
     def x2_lbd(e, i):
         if (e.startswith('\t')):
             return e.strip().split(' ', 1)
-        else: 
+        else:
             map_z[e[0:-1]] = str(int(i) + 1)
             return ['nop']
 
     x2 = text.split('\n')[1:]
     x2 = [x2_lbd(e, i) for e, i in zip(x2, range(len(x2)))]
     x2 = [[map_z.get(f, f) for f in e] for e in x2]
-    
+
     x = x2
 
     decompilerShadow = [None] * len(x)
@@ -384,33 +384,33 @@ def decompile_text(text, tlba = 0):
 
 if (__name__ == "__main__"):
     print("Initialising decompiler...")
-    
+
     print("Parsing arguments...")
     parser = argparse.ArgumentParser(description="Decompiles an already disassembled '.mpy' micropython script.")
     parser.add_argument("script_path", help="Disassembled script file name to decompile.")
     parser.add_argument("output_path", nargs='?', help="Output file to used for decompiled output.", default="")
     arguments = parser.parse_args()
-    
+
     print("Checking script...")
     if (os.path.isfile(arguments.script_path) != True):
         raise FileNotFoundError("Failed to find the script file at the given path.")
-    
+
     if (os.access(arguments.script_path, os.R_OK) != True):
         raise PermissionError("Do not have permission to read the script file.")
-    
+
     if (arguments.output_path != ""):
         print("Checking output...")
         if (os.path.isfile(arguments.output_path) != False):
             raise FileNotFoundError("Found an existing file at the output file path.")
-    
+
     script_file = open(arguments.script_path, mode='r')
     script_contents = script_file.read()
     script_file.close()
-    
-    globals()['outg'] = []    
+
+    globals()['outg'] = []
     globals()['grps'] = {}
     globals()['ids'] = []
-    
+
     cur = '_'
     for l in script_contents.splitlines():
         if (l.strip() == ''):
@@ -426,18 +426,17 @@ if (__name__ == "__main__"):
             else:
                 globals()['grps'][cur] = l
     from pprint import pprint
-    pprint(globals())
+    pprint(globals()['grps'])
     decompile_text(globals()['grps'].get('<module>'), 0)
-    
+
     if (arguments.output_path != ""):
         print("Writing output...")
-        output_file = open(arguments.output_path, 'w') 
+        output_file = open(arguments.output_path, 'w')
         output_file.write('\n'.join(globals()['outg']))
     else:
         print("Decompiled output...")
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
         print('\n'.join(globals()['outg']))
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-    
+
     print("Finished.")
-    

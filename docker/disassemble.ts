@@ -517,8 +517,10 @@ for (let type of execSync("find in -type f")
 		.map((e) => e.trim().split(",")[0]);
 	let values = outdotc
 		.split("mp_qstr_frozen_const_pool")[1]
-		.split("{")[2]
-		.split("}")[0]
+		.split("{")
+		.slice(2)
+		.join("{")
+		.split("},")[0]
 		.trim()
 		.split("\n")
 		.map((e) => e.split('"')[3]);
